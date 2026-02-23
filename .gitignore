@@ -1,0 +1,10 @@
+# Файлы настроек системы и редактора
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+__pycache__/
+*.py[cod]
+venv/
+.env
