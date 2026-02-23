@@ -13,7 +13,7 @@ import keyboard
 import pyperclip
 import ollama
 from faster_whisper import WhisperModel
-
+import tkinter as tk
 # Импорт для уведомлений
 try:
     from windows_toasts import InteractableWindowsToaster, Toast
@@ -29,16 +29,86 @@ if ctypes.windll.kernel32.GetLastError() == 183:
     time.sleep(1)
     sys.exit(0)
 
+class CursorOverlay:
+    def __init__(self):
+        self.root = None
+        self.queue = queue.Queue()
+        self.running = True
+
+    def _create_window(self):
+        self.root = tk.Tk()
+        self.root.overrideredirect(True)
+        self.root.attributes("-topmost", True)
+        self.root.config(bg='white')
+        self.root.wm_attributes("-transparentcolor", "white")
+        
+        # Скрываем окно сразу после создания
+        self.root.withdraw() 
+
+        self.canvas = tk.Canvas(self.root, width=22, height=22, bg='white', highlightthickness=0)
+        self.indicator = self.canvas.create_oval(2, 2, 20, 20, fill="gray", outline="black")
+        self.canvas.pack()
+
+        self._update_loop()
+        self.root.mainloop()
+
+    def _update_loop(self):
+        if not self.running:
+            self.root.destroy()
+            return
+        
+        try:
+            while True:
+                new_status = self.queue.get_nowait()
+                if new_status == "hidden":
+                    self.root.withdraw()  # ПОЛНОСТЬЮ убираем окно и процесс отрисовки
+                else:
+                    self._change_color(new_status)
+                    self.root.deiconify() # Возвращаем окно на экран
+        except queue.Empty:
+            pass
+        
+        # Если окно активно, двигаем его
+        if self.root.state() == "normal":
+            x = self.root.winfo_pointerx() + 18
+            y = self.root.winfo_pointery() + 18
+            self.root.geometry(f"+{x}+{y}")
+        
+        self.root.after(10, self._update_loop)
+
+    def _change_color(self, status):
+        colors = {
+            "recording": "red",
+            "paused": "yellow",
+            "processing": "#00FF00" # Зеленый
+        }
+        color = colors.get(status, "gray")
+        self.canvas.itemconfig(self.indicator, fill=color, outline="black")
+
+    def set_status(self, status):
+        self.queue.put(status)
+
+
+# --- Использование ---
+def start_indicator():
+    overlay = CursorOverlay()
+    t = threading.Thread(target=overlay._create_window, daemon=True)
+    t.start()
+    return overlay
+def stop_indicator():
+    indicator.stop()
+
 print("Загрузка моделей...")
 whisper_model = WhisperModel("small", device="cpu", compute_type="int8", cpu_threads=4)
 
 # Состояния
 is_recording = False
+
 is_paused = False
 audio_buffer = []
 audio_queue = queue.Queue()
 esc_presses = []
-
+indicator = None 
 # Состояния для коррекции
 auto_correct_mode = False
 scroll_lock_presses = []
@@ -144,18 +214,22 @@ def correction_daemon():
 threading.Thread(target=correction_daemon, daemon=True).start()
 
 def async_toggle_recording():
-    global is_recording, audio_buffer, is_paused
+    global is_recording, audio_buffer, is_paused, indicator
     if not is_recording:
         play_sound("start")
         print("Начало записи...")
-        push_toast("Диктовка", "Начало записи...")
+        #push_toast("Диктовка", "Начало записи...")
+        if indicator:
+            indicator.set_status("recording")
         is_recording, is_paused, audio_buffer = True, False, []
         threading.Thread(target=record_loop, daemon=True).start()
     else:
         is_recording = False
         play_sound("stop")
         print("Завершение записи...")
-        push_toast("Диктовка", "Запись остановлена. Обработка...")
+        #push_toast("Диктовка", "Запись остановлена. Обработка...")
+        if indicator:
+            indicator.set_status("processing")
         threading.Thread(target=process_audio, daemon=True).start()
 
 def record_loop():
@@ -172,19 +246,25 @@ def process_audio():
     data = np.concatenate(audio_buffer, axis=0).flatten()
     segments, _ = whisper_model.transcribe(data, beam_size=5, language="ru")
     text = " ".join([s.text for s in segments]).strip()
-    
-    if text:
-        # БЛОКИРОВКА: Вставка происходит атомарно
-        with clipboard_lock:
-            pyperclip.copy(text)
-            keyboard.press_and_release('ctrl+v')
-        
-        print(f"Распознано: {text}")
-        
-        if auto_correct_mode:
-            print("Добавлено в очередь на коррекцию.")
-            correction_queue.put(text)
-
+    global indicator
+    try:
+        if text:
+            # БЛОКИРОВКА: Вставка происходит атомарно
+            with clipboard_lock:
+                pyperclip.copy(text)
+                keyboard.press_and_release('ctrl+v')
+            
+            print(f"Распознано: {text}")
+            
+            if auto_correct_mode:
+                print("Добавлено в очередь на коррекцию.")
+                correction_queue.put(text)
+    except Exception as e:
+        print(f"Ошибка распознавания: {e}")
+    finally:
+        # Когда обработка завершена (успешно или с ошибкой) — скрываем значок
+        if indicator:  
+            indicator.set_status("hidden")
 # --- ОБРАБОТЧИК КЛАВИШ ---
 def on_key_event(e):
     global is_paused, esc_presses, is_recording, auto_correct_mode, scroll_lock_presses
@@ -212,11 +292,13 @@ def on_key_event(e):
         elif e.name == 'print screen': 
             async_toggle_recording()
 
+
         elif e.name == 'right ctrl' and is_recording: 
             is_paused = not is_paused
             play_sound("pause" if is_paused else "resume")
             print("Пауза") if is_paused else print("Продолжение")
-            
+            if indicator:
+                indicator.set_status("paused" if is_paused else "recording")
         elif e.name == 'esc':
             now = time.time()
             if len(esc_presses) > 0 and now - esc_presses[-1] > 1.5:
@@ -225,11 +307,14 @@ def on_key_event(e):
             if len(esc_presses) >= 3:
                 winsound.Beep(200, 600)
                 os._exit(0)
+if __name__ == "__main__":
+    keyboard.hook(on_key_event)
+    indicator = start_indicator()
+    indicator.set_status("hidden") # Сразу прячем после запуска
+    print("Система готова.")
+    print("Print Screen    - Запись")
+    print("Right Ctrl      - Пауза")
+    print("Scroll Lock x2  - Вкл/Выкл автокоррекцию")
+    print("Esc три раза    - Выход")
+    keyboard.wait()
 
-keyboard.hook(on_key_event)
-print("Система готова.")
-print("Print Screen    - Запись")
-print("Right Ctrl      - Пауза")
-print("Scroll Lock x2  - Вкл/Выкл автокоррекцию")
-print("Esc три раза    - Выход")
-keyboard.wait()
