@@ -19,6 +19,8 @@
    
 pip install ollama  os  threading  queue  time  sys  ctypes  winsound  ctypes.wintypes uuid numpy  sounddevice keyboard  pyperclip windows_toasts faster-whisper 
 
+При первом распознавании будет выданно предупреждение  и cкачена модель faster-whisper-small.
+
 ## если нужна Ollama
 Выполните в терминале:
 1. irm https://ollama.com/install.ps1 | iex
