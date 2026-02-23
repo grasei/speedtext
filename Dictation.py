@@ -317,4 +317,3 @@ if __name__ == "__main__":
     print("Scroll Lock x2  - Вкл/Выкл автокоррекцию")
     print("Esc три раза    - Выход")
     keyboard.wait()
-
