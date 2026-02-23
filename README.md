@@ -22,7 +22,7 @@ pip install ollama  os  threading  queue  time  sys  ctypes  winsound  ctypes.wi
 
 При первом распознавании будет выданно предупреждение  и cкачена модель faster-whisper-small.
 
-## если нужна Ollama
+## Если нужна Ollama
 Выполните в терминале:
 1. irm https://ollama.com/install.ps1 | iex
 2. ollama pull gemma2:2b
