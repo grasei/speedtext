@@ -314,6 +314,6 @@ if __name__ == "__main__":
     print("Система готова.")
     print("Print Screen    - Запись")
     print("Right Ctrl      - Пауза")
-    print("Scroll Lock x2  - Вкл/Выкл автокоррекцию")
+    print("Scroll Lock два раза - Вкл/Выкл автокоррекцию")
     print("Esc три раза    - Выход")
     keyboard.wait()
