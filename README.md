@@ -18,7 +18,7 @@
 1. **Скачать скрипт**: Просто скачайте файл `Dictation.py` в отдельную папку.
 2. **Установить библиотеки**: Откройте терминал и установите все зависимости одной командой:
    
-pip install ollama  os  threading  queue  time  sys  ctypes  winsound  ctypes uuid numpy  sounddevice keyboard  pyperclip windows_toasts faster-whisper 
+pip install ollama  numpy  sounddevice keyboard  pyperclip windows_toasts faster-whisper 
 
 При первом распознавании будет выдано предупреждение и будет cкачана модель faster-whisper-small.
 
@@ -42,6 +42,6 @@ pip install ollama  os  threading  queue  time  sys  ctypes  winsound  ctypes uu
 Распознанный и вставленный текст дополнительно отправляется на коррекцию. Это не препятствует продолжению диктовки. Если результаты коррекции отличается от исходного текста, выводится стандартное уведомление центра уведомлений Windows 11 и откорректированный текст помешается в расширенный буфер обмена (вызывается комбинацией клавиш Win + V).
 
 ## Удаление
-1. pip uninstall   ollama  os  threading  queue  time  sys  ctypes  winsound  ctypes uuid numpy  sounddevice keyboard  pyperclip windows_toasts faster-whisper 
+1. pip uninstall  ollama  numpy  sounddevice keyboard  pyperclip windows_toasts faster-whisper 
 2. Удалить файл `Dictation.py`
 3. Удалить модель из папки C:\Users\<Имя_пользователя>\.cache\huggingface\hub
